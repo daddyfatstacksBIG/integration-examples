@@ -1,41 +1,36 @@
 const invariant = require('invariant');
 const Maker = require('@makerdao/dai');
 const Eth2DaiInstant = require('@makerdao/dai-plugin-eth2dai-instant')
-const infuraProjectId = 'c3f0f26a4c1742e0949d8eedfc47be67'; //dai.js project id
-
+const infuraProjectId = 'c3f0f26a4c1742e0949d8eedfc47be67'; // dai.js project id
 
 // descriptive logging
 const debug = require('debug');
 const log = {
-  state: debug('leverage:state'),
-  action: debug('leverage:action'),
-  title: debug('leverage:header')
+  state : debug('leverage:state'),
+  action : debug('leverage:action'),
+  title : debug('leverage:header')
 };
-
 
 module.exports = async (iterations, priceFloor, principal) => {
   try {
     // connect to blockchain using infura
     const maker = await Maker.create('http', {
-      privateKey: process.env.PRIVATE_KEY,
-      plugins: [Eth2DaiInstant],
-      log: true,
-      url: 'https://kovan.infura.io/v3/11465e3f27b247eb8b785c23047b29fd'
+      privateKey : process.env.PRIVATE_KEY,
+      plugins : [ Eth2DaiInstant ],
+      log : true,
+      url : 'https://kovan.infura.io/v3/11465e3f27b247eb8b785c23047b29fd'
     });
     await maker.authenticate();
 
     invariant(
-      iterations !== undefined &&
-      priceFloor !== undefined &&
-      principal !== undefined,
-      'Not all parameters (iterations, priceFloor, principal) were received'
-    );
+        iterations !== undefined && priceFloor !== undefined &&
+            principal !== undefined,
+        'Not all parameters (iterations, priceFloor, principal) were received');
 
     log.title('Creating a leveraged cdp with the following parameters:');
     log.title(`Iterations: ${iterations}`);
     log.title(`Price Floor: $${priceFloor}`);
     log.title(`Principal: ${principal} ETH`);
-
 
     // await maker.authenticate();
     const liquidationRatio = await maker.service('cdp').getLiquidationRatio();
@@ -48,17 +43,16 @@ module.exports = async (iterations, priceFloor, principal) => {
     log.state(`Liquidation ratio: ${liquidationRatio}`);
     log.state(`Current price of ETH: ${priceEth}`);
 
-    invariant(
-      priceEth > priceFloor,
-      'Price floor must be below the current oracle price'
-    );
+    invariant(priceEth > priceFloor,
+              'Price floor must be below the current oracle price');
 
     log.action('opening CDP...');
     const cdp = await maker.openCdp();
     const id = await cdp.id;
     log.state(`CDP ID: ${id}`);
 
-    // calculate a collateralization ratio that will achieve the given price floor
+    // calculate a collateralization ratio that will achieve the given price
+    // floor
     const collatRatio = priceEth * liquidationRatio / priceFloor;
     log.state(`Target ratio: ${collatRatio}`);
 
@@ -66,7 +60,7 @@ module.exports = async (iterations, priceFloor, principal) => {
     await cdp.lockEth(principal);
     log.action(`locked ${principal} ETH`);
 
-    //get initial peth collateral
+    // get initial peth collateral
     const initialPethCollateral = await cdp.getCollateralValue(Maker.PETH);
     log.state(`${principal} ETH is worth ${initialPethCollateral}`);
 
@@ -99,10 +93,8 @@ module.exports = async (iterations, priceFloor, principal) => {
     }
 
     // get the final state of our CDP
-    const [pethCollateral, debt] = await Promise.all([
-      cdp.getCollateralValue(Maker.PETH),
-      cdp.getDebtValue()
-    ]);
+    const [pethCollateral, debt] = await Promise.all(
+        [ cdp.getCollateralValue(Maker.PETH), cdp.getDebtValue() ]);
 
     const cdpState = {
       initialPethCollateral,
@@ -112,13 +104,12 @@ module.exports = async (iterations, priceFloor, principal) => {
       principal,
       iterations,
       priceFloor,
-      finalDai: drawAmt
+      finalDai : drawAmt
     };
 
     log.state(`Created CDP: ${JSON.stringify(cdpState)}`);
     return cdpState;
-  }
-  catch (error) {
+  } catch (error) {
     console.log('ERROR OCCURRED!', error)
   }
 };
